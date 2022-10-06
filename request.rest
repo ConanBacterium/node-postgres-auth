@@ -1,0 +1,21 @@
+GET http://localhost:3000/posts 
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiamFybyIsImlhdCI6MTY2NTA2MDU0MCwiZXhwIjoxNjY1MDY0MTQwfQ.N0VxMn6XOu3-lCv6mbW_6GELHWhfSu1yJRlCb9RXeT4
+
+###
+
+POST http://localhost:3000/auth/token
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiamFybyIsImlhdCI6MTY2NTA0ODkzNn0.QLBIw4vL4e60eZpPSvGR6iPTsgKiiqiARgZa6MDBpOk"
+}
+
+###
+
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+    "name": "testuser",
+    "password": "testpassword"
+}

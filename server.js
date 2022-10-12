@@ -3,7 +3,15 @@ const express = require('express')
 const app = express()
 const bcrypt = require('bcrypt')
 const jwt = require("jsonwebtoken")
+/* const cookieParser = require("cookie-parser");
+app.use(cookieParser) */
 app.use(express.json()) // server can now accept json
+const cors = require("cors")
+app.use(
+    cors({
+        origin: ["http://127.0.0.1:4000", "http://127.0.0.1:3000"]
+    })
+)
 
 const mountRoutes = require("./routes")
 mountRoutes(app) // mount the routes... 
@@ -49,4 +57,4 @@ function authenticateToken(req, res, next) {
 
 
 
-app.listen(3000)
+app.listen(process.env.PORT)

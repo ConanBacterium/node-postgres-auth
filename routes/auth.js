@@ -23,6 +23,17 @@ const refreshTokenExists = async (refreshToken) => {
     const res = await db.query("SELECT * FROM refreshtoken WHERE refreshtoken=$1", [refreshToken])
     return (res.rows[0] ? true : false) // returns true if refreshToken exists, false otherwise.
 }
+// HOW TO DELETE THE REFRESHTOKEN? post to /auth/token with some additional header or smth? 
+const sendRefreshToken = (res, token) => {
+    console.log("sendRefreshToken()")
+    /* res.cookie("jrt", token, {
+        httpOnly: true,
+        path: "/auth/token"
+    }); */
+    res.cookie("jrt", token, {
+        path: "/auth/token"
+    });
+};
 
 router.get("/", async (req, res) => {
     try {
@@ -35,7 +46,14 @@ router.get("/", async (req, res) => {
 })
 // get new accesstoken
 router.post("/token", async (req,res) => {
-    const refreshToken = req.body.token
+    let refreshToken = null
+    try {
+        refreshToken = req.cookies.jrt; // get refresh token from jrt cookie
+    } catch (e) {
+        console.log("SMTH WRONG GETTING REFRESHTOKENCOOKIE")
+        console.log(e)
+        refreshToken = null
+    }
     if (refreshToken === null) return res.sendStatus(401)
     const isValid = await refreshTokenExists(refreshToken)
     console.log(`refreshToken: ${refreshToken} isValid: ${isValid}`)
@@ -47,30 +65,35 @@ router.post("/token", async (req,res) => {
     })
 })
 router.post("/login", async (req, res) => {
+    const decPayload = Buffer.from(req.body.up, "base64").toString("ascii") // TODO maybe should be utf-8?
+    username_password = decPayload.split(".") // index 0 username, index 1 password
     let user
     try {
-        user = await getUserFromDB(req.body.name)
-    } catch (e) {
+        user = await getUserFromDB(username_password[0])
+    } catch (e) { 
         console.log(e)
     }
     if (!user) {
         return res.status(400).send("Cannot find user")
     }
     try {
-        if(await bcrypt.compare(req.body.password, user.password)) {
-            const username = {name: user.username}
-            const accessToken = generateAccessToken(username)
-            const refreshToken = jwt.sign(username, process.env.REFRESH_TOKEN_SECRET)
+        if(await bcrypt.compare(username_password[1], user.password)) {
+            const accessToken = generateAccessToken(user.username)
+            const refreshToken = jwt.sign({name:user.username}, process.env.REFRESH_TOKEN_SECRET)
             insertRefreshToken(refreshToken)
-            res.json({ accessToken: accessToken, refreshToken: refreshToken})
+            console.log("/login route, sendRefreshToken ... ")
+            sendRefreshToken(res, refreshToken)
+            console.log(res.cookies)
+            res.json({ accessToken: accessToken})
         } else {
             res.send("Not allowed.")
         }
     } catch (error){
-        res.status(500).send(`error: ${error}`)
+        res.status(500).send(`error: ${error}`) 
     }
 })
 
-function generateAccessToken(userName) {
-    return jwt.sign(userName, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "60m"}) // gen secret in node: require("crypto").randomBytes(64).toString('hex')
+// TODO BUG sometimes generates the same jwt, and then db throws error because they're supposed to be unique. 
+function generateAccessToken(userName) { 
+    return jwt.sign({name:userName}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "30m"}) // gen secret in node: require("crypto").randomBytes(64).toString('hex')
 }

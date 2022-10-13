@@ -23,6 +23,19 @@ const refreshTokenExists = async (refreshToken) => {
     const res = await db.query("SELECT * FROM refreshtoken WHERE refreshtoken=$1", [refreshToken])
     return (res.rows[0] ? true : false) // returns true if refreshToken exists, false otherwise.
 }
+
+
+/*  
+             THIS WORKS WHEN CLIENT DOES REQUEST LIKE THIS !!!!!!!!!!!!!!!!
+            fetch(LOGINSERVERURL, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                "Access-Control-Allow-Credentials": "true",
+            },
+            credentials: 'include',
+            body: JSON.stringify(encPayload)
+        }) */
 // HOW TO DELETE THE REFRESHTOKEN? post to /auth/token with some additional header or smth? 
 // https://expressjs.com/en/api.html#res.clearCookie
 // res.clearCookie("jrt") ought to do the job 
@@ -31,8 +44,8 @@ const sendRefreshToken = (res, token) => {
     console.log("sendRefreshToken()")
     console.log(`token: ${token}`)
     res.cookie("jrt", token, {
-        httpOnly: false,
-       /*  path: "/auth/token", */ // so only visible to /auth/token 
+        httpOnly: true,
+        path: "/auth/token", // so only visible to /auth/token 
         secure: true, // NEEDS TO BE SET TO TRUE WHEN sameSite: NONE
         sameSite: 'None', 
     }); 
@@ -66,7 +79,10 @@ router.post("/token", async (req,res) => {
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
         if (err) return res.sendStatus(403)
         const accessToken = generateAccessToken({name: user.name})
-        res.json({accessToken: accessToken})
+        console.log("/token sending json accessToken: accessToken")
+        const payload = {accessToken: accessToken}
+        console.log(payload)
+        res.json(payload)
     })
 })
 // https://stackoverflow.com/questions/46288437/set-cookies-for-cross-origin-requests
@@ -88,24 +104,7 @@ router.post("/login", async (req, res) => {
             const refreshToken = jwt.sign({name:user.username}, process.env.REFRESH_TOKEN_SECRET)
             insertRefreshToken(refreshToken)
             console.log("/login route, sendRefreshToken ... ")
-            //sendRefreshToken(res, refreshToken)
-            /*  
-             THIS WORKS WHEN CLIENT DOES REQUEST LIKE THIS !!!!!!!!!!!!!!!!
-            fetch(LOGINSERVERURL, {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-                "Access-Control-Allow-Credentials": "true",
-            },
-            credentials: 'include',
-            body: JSON.stringify(encPayload)
-        }) */
-            res.cookie('foo', 'bar', { 
-                secure: true, // NEEDS TO BE SET TO TRUE WHEN sameSite: NONE
-                sameSite: 'None',
-                httpOnly: false,
-                path: "*"
-              })
+            sendRefreshToken(res, refreshToken)
             console.log(`req.headers.origin: ${req.headers.origin}`)
             res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
             res.header('Access-Control-Allow-Credentials', true);

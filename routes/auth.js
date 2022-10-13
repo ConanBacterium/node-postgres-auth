@@ -24,20 +24,23 @@ const refreshTokenExists = async (refreshToken) => {
     return (res.rows[0] ? true : false) // returns true if refreshToken exists, false otherwise.
 }
 // HOW TO DELETE THE REFRESHTOKEN? post to /auth/token with some additional header or smth? 
+// https://expressjs.com/en/api.html#res.clearCookie
+// res.clearCookie("jrt") ought to do the job 
+// // https://stackoverflow.com/questions/46288437/set-cookies-for-cross-origin-requests
 const sendRefreshToken = (res, token) => {
     console.log("sendRefreshToken()")
-    /* res.cookie("jrt", token, {
-        httpOnly: true,
-        path: "/auth/token"
-    }); */
+    console.log(`token: ${token}`)
     res.cookie("jrt", token, {
-        path: "/auth/token"
-    });
+        httpOnly: false,
+       /*  path: "/auth/token", */ // so only visible to /auth/token 
+        secure: true, // NEEDS TO BE SET TO TRUE WHEN sameSite: NONE
+        sameSite: 'None', 
+    }); 
 };
 
 router.get("/", async (req, res) => {
     try {
-        const qRes = await getUserFromDB("jaro")
+        const qRes = await getUserFromDB("testuser")
         res.json({msg: qRes})
     } catch (e) {
         console.log(e)
@@ -46,6 +49,8 @@ router.get("/", async (req, res) => {
 })
 // get new accesstoken
 router.post("/token", async (req,res) => {
+    console.log("/token post route")
+    console.log(req.cookies.jrt)
     let refreshToken = null
     try {
         refreshToken = req.cookies.jrt; // get refresh token from jrt cookie
@@ -64,6 +69,7 @@ router.post("/token", async (req,res) => {
         res.json({accessToken: accessToken})
     })
 })
+// https://stackoverflow.com/questions/46288437/set-cookies-for-cross-origin-requests
 router.post("/login", async (req, res) => {
     const decPayload = Buffer.from(req.body.up, "base64").toString("ascii") // TODO maybe should be utf-8?
     username_password = decPayload.split(".") // index 0 username, index 1 password
@@ -78,17 +84,38 @@ router.post("/login", async (req, res) => {
     }
     try {
         if(await bcrypt.compare(username_password[1], user.password)) {
-            const accessToken = generateAccessToken(user.username)
+            /* const accessToken = generateAccessToken(user.username) */
             const refreshToken = jwt.sign({name:user.username}, process.env.REFRESH_TOKEN_SECRET)
             insertRefreshToken(refreshToken)
             console.log("/login route, sendRefreshToken ... ")
-            sendRefreshToken(res, refreshToken)
-            console.log(res.cookies)
-            res.json({ accessToken: accessToken})
+            //sendRefreshToken(res, refreshToken)
+            /*  
+             THIS WORKS WHEN CLIENT DOES REQUEST LIKE THIS !!!!!!!!!!!!!!!!
+            fetch(LOGINSERVERURL, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                "Access-Control-Allow-Credentials": "true",
+            },
+            credentials: 'include',
+            body: JSON.stringify(encPayload)
+        }) */
+            res.cookie('foo', 'bar', { 
+                secure: true, // NEEDS TO BE SET TO TRUE WHEN sameSite: NONE
+                sameSite: 'None',
+                httpOnly: false,
+                path: "*"
+              })
+            console.log(`req.headers.origin: ${req.headers.origin}`)
+            res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+            res.header('Access-Control-Allow-Credentials', true);
+            res.send("Cookie is set ?")
+            /* res.json({ accessToken: accessToken}) */
         } else {
-            res.send("Not allowed.")
+            res.status(403).send("Not allowed.")
         }
     } catch (error){
+        console.log("error at auth/login")
         res.status(500).send(`error: ${error}`) 
     }
 })

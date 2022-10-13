@@ -3,13 +3,15 @@ const express = require('express')
 const app = express()
 const bcrypt = require('bcrypt')
 const jwt = require("jsonwebtoken")
-/* const cookieParser = require("cookie-parser");
-app.use(cookieParser) */
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
 app.use(express.json()) // server can now accept json
 const cors = require("cors")
 app.use(
     cors({
-        origin: ["http://127.0.0.1:4000", "http://127.0.0.1:3000"]
+        origin: ["http://127.0.0.1:4000", "http://127.0.0.1:3000"],
+        /* origin: "*", */
+        credentials: true
     })
 )
 
@@ -32,6 +34,18 @@ const posts = [
         title: "Post3"
     }
 ]
+
+app.get("/cookie", (req, res) => {
+    res.cookie('foo', 'bar', { 
+        secure: false,
+        httpOnly: false,
+        secure: false,
+        path: "*"
+      })
+    /* res.setHeader("Access-Control-Allow-Origin", req.headers.origin); */
+    res.header('Access-Control-Allow-Credentials', true);
+    res.send("Cookie is set foo=bar")
+})
 
 app.get("/posts",authenticateToken, (req, res) => {
     console.log(`req.user.name: ${req.user.name}`)
